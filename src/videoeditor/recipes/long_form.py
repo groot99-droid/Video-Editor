@@ -1,5 +1,5 @@
 """One cleaned-up edit: cut filler and retakes, grade, caption, QA."""
-from videoeditor.recipes import Recipe, register
+from videoeditor.recipes import Recipe, publish_step, register
 
 
 def steps(b: dict) -> list[str]:
@@ -18,7 +18,7 @@ def steps(b: dict) -> list[str]:
     out += ["ve render <edit>/edl.json -o <edit>/preview.mp4 --preview",
             "ve timeline <edit>/preview.mp4 START END   # at every cut boundary (+-1.5s); fix, re-render, max 3 passes",
             "ve render <edit>/edl.json -o <edit>/final.mp4   # on user confirmation"]
-    return out
+    return out + publish_step(b, "<edit>/final.mp4")
 
 
 register(Recipe("long_form", "Long-form edit", "Cut filler and retakes into one polished video.", steps))

@@ -54,9 +54,15 @@ the steps. Do not use tools from other recipes.
 
 whisperX still gives untimed words for tokens like "$13.60"; they are interpolated, so treat their timing as approximate.
 
-## 4. Command reference
+## 4. Publishing (only when the user asks; read `src/videoeditor/recipes/playbooks/publish.md` first)
 
-`ve ask | plan | transcribe | pack | find | separate | verify | cut | reframe | edl | captions | render | grade | timeline | overlay | finish`
+`ve publish prepare | plan | init | send | handoff | status | revoke`. It is a dry run until the USER says to send. Never
+pass `--yes`, `--public`, `--accept-cost` or `--force` on your own judgement: each needs the user's explicit instruction in
+this conversation, per platform. Never choose the "made for kids" declaration for them.
+
+## 5. Command reference
+
+`ve ask | plan | transcribe | pack | find | separate | verify | cut | reframe | edl | captions | render | grade | timeline | overlay | finish | publish`
 (`ve <cmd> --help` for flags; `render`, `grade`, `timeline` pass extra flags through, e.g. `ve render edl.json -o out.mp4 --preview`).
 
 Manim overlays: read `skills/manim-video/SKILL.md` (needs LaTeX + `pip install manim`).

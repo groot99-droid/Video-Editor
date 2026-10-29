@@ -1,7 +1,7 @@
 """Find the best moments in long dialogue video and cut them as standalone clips (vertical or not)."""
 from pathlib import Path
 
-from videoeditor.recipes import Recipe, register
+from videoeditor.recipes import Recipe, publish_step, register
 
 
 def steps(b: dict) -> list[str]:
@@ -38,7 +38,7 @@ def steps(b: dict) -> list[str]:
     finish = " ".join(["ve finish", final, *flags, "-o <out>/clip_N_final.mp4"])
     out.append(f"{finish}   # transcribes the clip, captions, grade, loudnorm")
     out.append("ve timeline <final> START END      # self-check cut boundaries and caption readability")
-    return out
+    return out + publish_step(b, "<out>/clip_N_final.mp4")
 
 
 register(Recipe("highlight_clips", "Highlight clips", "Pick the best moments from long dialogue and cut standalone clips.", steps))
