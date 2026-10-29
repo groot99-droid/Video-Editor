@@ -1,0 +1,9 @@
+This project merges and adapts code from two MIT-licensed projects:
+
+- video-use (c) 2026 Browser Use, https://github.com/browser-use/video-use
+  -> src/videoeditor/core/{render,pack,grade,timeline}.py, skills/manim-video/, tests/test_render_*.py
+- clipify (c) 2026 Louise de Sadeleer, https://github.com/louisedesadeleer/clipify
+  -> src/videoeditor/core/{moments,reframe}.py and the opus/karaoke/minimal caption styles in captions.py
+
+Full licence texts are in LICENSES/. Changes: ElevenLabs transcription replaced by local Whisper emitting the same
+JSON shape; macOS-only flags and font paths removed; captions merged into one engine; scripts turned into a package.
