@@ -1,8 +1,8 @@
 """Reframe landscape video to vertical 9:16: center crop, speaker-following pan, or split-screen.
 
-Ported from clipify (analyze.py + build_pan.py + the split-screen recipe). Speaker detection
-uses frame-difference motion inside two hand-placed face ROIs; no face-detection model.
-Camera must be static within the clip.
+Ported from clipify (analyze.py + build_pan.py + the split-screen recipe). By default, speaker detection
+uses frame-difference motion inside two hand-placed face ROIs; no face-detection model. If a diarized
+transcript exists (whisperX backend), pass real speaker turns instead. Camera must be static within the clip.
 """
 from __future__ import annotations
 
@@ -93,6 +93,43 @@ def speaker_segments(left: np.ndarray, right: np.ndarray, fps: float = 30.0,
     return out
 
 
+def speaker_segments_from_words(words: list[dict], speaker_map: dict[str, str], min_dur: float = 1.0) -> list[dict]:
+    """Speaker turns from a diarized transcript (words carry `speaker_id`, see transcribe_whisperx) instead of
+    face-box motion. `speaker_map` says which side of the frame each speaker sits on, e.g.
+    {"SPEAKER_00": "left", "SPEAKER_01": "right"}. Words from unmapped speakers are ignored; short turns
+    merge into the previous one exactly like the motion method."""
+    turns: list[dict] = []
+    for w in words:
+        if w.get("type", "word") != "word":
+            continue
+        side = speaker_map.get(w.get("speaker_id") or "")
+        if side not in ("left", "right") or w.get("start") is None:
+            continue
+        if turns and turns[-1]["speaker"] == side:
+            turns[-1]["end"] = w["end"]
+        else:
+            turns.append({"start": w["start"], "end": w["end"], "speaker": side})
+    if not turns:
+        return []
+    # a camera cut holds on the previous speaker through gaps: extend each turn to the next one's start
+    for a, b in zip(turns, turns[1:]):
+        a["end"] = b["start"]
+    turns[0]["start"] = 0.0
+    merged: list[dict] = []
+    for t in turns:
+        if merged and (t["end"] - t["start"]) < min_dur:
+            merged[-1]["end"] = t["end"]
+        else:
+            merged.append(t)
+    out: list[dict] = []
+    for t in merged:
+        if out and out[-1]["speaker"] == t["speaker"]:
+            out[-1]["end"] = t["end"]
+        else:
+            out.append(t)
+    return out
+
+
 def pan_expr(segments: list[dict], left_x: int, right_x: int) -> str:
     """ffmpeg crop x-expression with hard cuts between the two speaker positions."""
     def x_for(s: str) -> int:
@@ -146,18 +183,19 @@ def split_filter(segments: list[dict], left_face: tuple[int, int], right_face: t
 
 
 def reframe(clip: Path, out: Path, mode: str, *, left_roi=None, right_roi=None, fps: float = 30.0,
-            min_dur: float = 1.0, crf: int = 20) -> dict:
+            min_dur: float = 1.0, crf: int = 20, segments: list[dict] | None = None) -> dict:
     """Render `clip` to 1080x1920. mode: 'center' | 'pan' | 'split'. ROIs are (x, y, w, h) in source pixels."""
     info = probe(clip)
     sw, sh = info["width"], info["height"]
-    segments: list[dict] = []
     if mode in ("pan", "split"):
         if not (left_roi and right_roi):
             raise SystemExit(f"mode '{mode}' needs --left-roi and --right-roi (x,y,w,h in source pixels)")
-        segments = speaker_segments(motion_energy(clip, left_roi, fps), motion_energy(clip, right_roi, fps), fps, min_dur)
+        if segments is None:  # no diarized turns supplied: fall back to motion inside the two face boxes
+            segments = speaker_segments(motion_energy(clip, left_roi, fps), motion_energy(clip, right_roi, fps), fps, min_dur)
         if not segments:
             raise SystemExit("could not derive speaker segments (clip too short?)")
 
+    segments = segments or []
     enc = ["-c:v", "libx264", "-preset", "fast", "-crf", str(crf), "-pix_fmt", "yuv420p",
            "-c:a", "aac", "-b:a", "192k", "-movflags", "+faststart"]
     base = ["ffmpeg", "-y", "-v", "error", "-i", str(clip)]
@@ -191,8 +229,25 @@ def main(argv: list[str] | None = None) -> None:
     ap.add_argument("--left-roi", type=_roi, help="x,y,w,h around the left face's mouth+chin")
     ap.add_argument("--right-roi", type=_roi, help="x,y,w,h around the right face's mouth+chin")
     ap.add_argument("--min-dwell", type=float, default=1.0)
+    ap.add_argument("--turns", type=Path, help="diarized transcript JSON (ve transcribe --backend whisperx --diarize); "
+                    "uses real speaker turns instead of face-box motion")
+    ap.add_argument("--speaker-map", help="which side each speaker sits on, e.g. SPEAKER_00=left,SPEAKER_01=right")
+    ap.add_argument("--clip-start", type=float, default=0.0,
+                    help="where this clip starts in the transcribed source, so turn times line up")
     a = ap.parse_args(argv)
-    res = reframe(a.clip, a.output, a.mode, left_roi=a.left_roi, right_roi=a.right_roi, min_dur=a.min_dwell)
+    segments = None
+    if a.turns:
+        if not a.speaker_map:
+            raise SystemExit("--turns needs --speaker-map SPEAKER_00=left,SPEAKER_01=right")
+        mapping = dict(kv.split("=", 1) for kv in a.speaker_map.split(","))
+        words = json.loads(a.turns.read_text())["words"]
+        shifted = [dict(w, start=w["start"] - a.clip_start, end=w["end"] - a.clip_start)
+                   for w in words if w.get("type") == "word" and w["end"] > a.clip_start]
+        segments = speaker_segments_from_words(shifted, mapping, a.min_dwell)
+        if not segments:
+            raise SystemExit("no usable speaker turns: check the transcript has speaker_id and the --speaker-map names")
+    res = reframe(a.clip, a.output, a.mode, left_roi=a.left_roi, right_roi=a.right_roi, min_dur=a.min_dwell,
+                  segments=segments)
     print(json.dumps(res, indent=2))
 
 

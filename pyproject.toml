@@ -8,6 +8,8 @@ dependencies = ["numpy", "pillow"]
 
 [project.optional-dependencies]
 speech = ["faster-whisper"]
+speech-plus = ["faster-whisper", "whisperx"]   # tighter word timing + optional speaker labels (several GB: torch)
+stems = ["demucs>=4.1"]                        # Demucs stem separation (torch)
 animations = ["manim"]
 dev = ["pytest"]
 
@@ -23,6 +25,7 @@ where = ["src"]
 
 [tool.setuptools.package-data]
 "videoeditor.recipes" = ["playbooks/*.md"]
+"videoeditor.templates" = ["remotion_overlay/*", "remotion_overlay/src/*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

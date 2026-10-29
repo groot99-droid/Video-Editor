@@ -7,6 +7,9 @@ Detection: spectral flux in a band. Defaults `--band 1000:6000 --min-flux 30 --m
 - Heavy thuds (kick, body shot): `--band 200:2000`. Clinks, snare cracks, whistles: `--band 4000:10000`.
 - Drumming needs `--min-gap` ~0.2; chopping 0.6-1.0.
 
+Music playing over the action? Add `--stem drums` (or `other` for clinks) to `ve find` so detection runs on the
+separated stem (needs the `stems` extra; about 1.5x clip length on CPU). Cached under `<edit>/stems/`.
+
 ALWAYS run `ve verify` before rendering. Audio finds the sound, not whether the camera saw it. Drop shots
 where the subject is bent over or off-frame, a thumb covers the lens, or another sound (door, dropped tool)
 triggered the detector.

@@ -1,6 +1,13 @@
-"""Zero-setup PIL overlay: an animated text card rendered to MP4 (ease_out_cubic slide + fade in)."""
+"""Overlay engines for the explainer add-on.
+
+  pil       zero-setup: an animated text card rendered to MP4 (ease_out_cubic slide + fade in)
+  remotion  React/CSS compositions from our own template (templates/remotion_overlay); needs Node and a browser
+"""
 from __future__ import annotations
 
+import json
+import os
+import shutil
 import subprocess
 from pathlib import Path
 
@@ -45,3 +52,69 @@ def render_text_card(text: str, out: Path, duration: float = 4.0, size: tuple[in
     if proc.wait() != 0:
         raise SystemExit("ffmpeg failed while encoding the overlay")
     return out
+
+
+# -------- Remotion slots ----------------------------------------------------
+
+TEMPLATE_DIR = Path(__file__).resolve().parent.parent / "templates" / "remotion_overlay"
+
+
+def caption_pages_from_edl(edl: dict, edit_dir: Path) -> list[dict]:
+    """Caption pages on the output timeline, chunked exactly like the burned-in captions."""
+    from videoeditor.core.captions import output_timeline_words
+    from videoeditor.core.render import chunk_words
+
+    pages = []
+    for chunk in chunk_words(output_timeline_words(edl, edit_dir)):
+        text = " ".join(w["text"] for w in chunk).rstrip(",;:")
+        pages.append({"text": text, "start": round(chunk[0]["start"], 3), "end": round(max(chunk[-1]["end"], chunk[0]["start"] + 0.4), 3)})
+    return pages
+
+
+def build_overlay_spec(*, title: str | None = None, pages: list[dict] | None = None, duration: float = 4.0,
+                       size: tuple[int, int] = (1920, 1080), fps: int = 30, transparent: bool = False,
+                       font_family: str | None = None) -> dict:
+    from videoeditor.core.captions import installed_family
+
+    items: list[dict] = []
+    if title:
+        items.append({"type": "title", "text": title, "start": 0.0, "end": duration})
+    if pages:
+        items.append({"type": "captions", "pages": pages})
+    if not items:
+        raise SystemExit("an overlay needs a title or caption pages")
+    return {
+        "width": size[0], "height": size[1], "fps": fps, "durationSeconds": duration,
+        "background": "transparent" if transparent else "#0a0a0a",
+        "color": "#ffffff", "accent": "#ff5a00",
+        "fontFamily": font_family or installed_family("DejaVu Sans Mono"),
+        "items": items,
+    }
+
+
+def scaffold_remotion_slot(slot_dir: Path, spec: dict) -> Path:
+    """Copy the template into slot_dir (never inside the videoeditor repo) and write overlay.json."""
+    slot_dir.mkdir(parents=True, exist_ok=True)
+    shutil.copytree(TEMPLATE_DIR, slot_dir, dirs_exist_ok=True, ignore=shutil.ignore_patterns("node_modules", "*.mp4", "*.webm"))
+    (slot_dir / "overlay.json").write_text(json.dumps(spec, indent=2))
+    return slot_dir
+
+
+def render_remotion(slot_dir: Path, out_name: str = "render.mp4", transparent: bool = False,
+                    browser: str | None = None) -> Path:
+    """npm install (once) and `remotion render`. Transparent output is VP8 WebM with alpha."""
+    if shutil.which("node") is None or shutil.which("npm") is None:
+        raise SystemExit("the remotion engine needs Node.js 20.19+/22.13+ and npm on PATH")
+    if not (slot_dir / "node_modules").exists():
+        subprocess.run(["npm", "install", "--no-audit", "--no-fund", "--loglevel=error"], cwd=slot_dir, check=True)
+    out = Path(out_name)
+    if transparent and out.suffix != ".webm":
+        out = out.with_suffix(".webm")
+    cmd = ["npx", "remotion", "render", "src/index.ts", "Overlay", str(out), "--props=overlay.json"]
+    if transparent:
+        cmd += ["--codec=vp8", "--image-format=png", "--pixel-format=yuva420p"]
+    browser = browser or os.environ.get("REMOTION_BROWSER_EXECUTABLE")
+    if browser:
+        cmd.append(f"--browser-executable={browser}")
+    subprocess.run(cmd, cwd=slot_dir, check=True)
+    return slot_dir / out

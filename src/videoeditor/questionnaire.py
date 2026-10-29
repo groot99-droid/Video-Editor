@@ -7,6 +7,7 @@ has already collected them from the user.
 """
 from __future__ import annotations
 
+import importlib.util
 import json
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -32,11 +33,12 @@ QUESTIONS: list[Question] = [
     ),
     Question(
         "reframe", "Source is landscape but you want vertical. How should it be reframed?",
-        ["pan", "split", "center"], "center",
+        ["pan", "split", "center", "turns"], "center",
         applies=lambda b: b["deliverable"] == "vertical" and b.get("source_orientation") == "landscape",
         help={"pan": "hard-cut pan following whoever speaks (needs two face ROIs)",
               "split": "stacked split-screen, active speaker on top (needs two face ROIs)",
-              "center": "plain center crop (single subject)"},
+              "center": "plain center crop (single subject)",
+              "turns": "pan using real speaker turns from a diarized transcript (needs the speech-plus extra + HF token)"},
     ),
     Question(
         "content", "What is in the footage?", ["dialogue", "action", "mixed"], "dialogue",
@@ -88,7 +90,10 @@ def validate(brief: dict) -> list[str]:
         warns.append("captions ignored for action montage: the strike sounds are the rhythm")
     if brief["deliverable"] == "landscape" and brief.get("source_orientation") == "vertical":
         warns.append("vertical source with landscape deliverable: output will be letterboxed or cropped hard")
-    if brief.get("reframe") in ("pan", "split") and brief.get("content") == "action":
+    if brief.get("reframe") == "turns" and importlib.util.find_spec("whisperx") is None:
+        warns.append("reframe=turns needs whisperx: pip install 'videoeditor[speech-plus]' (and an HF_TOKEN); "
+                     "without it use pan, which follows motion in two face boxes")
+    if brief.get("reframe") in ("pan", "split", "turns") and brief.get("content") == "action":
         warns.append("speaker pan/split need talking faces; use center crop for action footage")
     return warns
 

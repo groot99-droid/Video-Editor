@@ -42,9 +42,21 @@ the steps. Do not use tools from other recipes.
 7. Action footage: always `ve verify` strikes visually before rendering; audio finds the sound, not the picture.
 8. Never skip a recipe step silently; if something cannot be tested or done, tell the user.
 
-## 3. Command reference
+## 3. Optional upgrades (only if the user has installed the extra; never install them silently, they are large)
 
-`ve ask | plan | transcribe | pack | find | verify | cut | reframe | edl | captions | render | grade | timeline | overlay | finish`
+| Situation | Use | Extra |
+|---|---|---|
+| Cut edges or captions drift; need speaker labels | `ve transcribe --backend whisperx [--diarize --max-speakers 2]` (diarize needs `HF_TOKEN`) | `speech-plus` |
+| Two people, vertical output, diarized transcript exists | `ve reframe --mode pan --turns <transcript.json> --speaker-map SPEAKER_00=left,SPEAKER_01=right --clip-start S` | `speech-plus` |
+| Music under speech | `ve transcribe --clean-speech` (or `ve separate --stems vocals no_vocals`) | `stems` |
+| Action footage with a soundtrack | `ve find --stem drums` | `stems` |
+| Titles/caption pages as an overlay | `ve overlay "Title" --engine remotion [--captions-from edl.json] [--transparent]` | Node + Remotion licence check |
+
+whisperX still gives untimed words for tokens like "$13.60"; they are interpolated, so treat their timing as approximate.
+
+## 4. Command reference
+
+`ve ask | plan | transcribe | pack | find | separate | verify | cut | reframe | edl | captions | render | grade | timeline | overlay | finish`
 (`ve <cmd> --help` for flags; `render`, `grade`, `timeline` pass extra flags through, e.g. `ve render edl.json -o out.mp4 --preview`).
 
 Manim overlays: read `skills/manim-video/SKILL.md` (needs LaTeX + `pip install manim`).

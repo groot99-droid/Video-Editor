@@ -53,7 +53,9 @@ def cmd_transcribe(a) -> None:
 
     for v in a.video:
         edit = _edit_dir(a.edit_dir, str(v))
-        T.transcribe(v.resolve(), edit, a.model, None if a.language == "auto" else a.language, a.vad, a.force)
+        T.transcribe(v.resolve(), edit, a.model, None if a.language == "auto" else a.language, a.vad, a.force,
+                     backend=a.backend, diarize=a.diarize, hf_token=a.hf_token, min_speakers=a.min_speakers,
+                     max_speakers=a.max_speakers, clean_speech=a.clean_speech)
 
 
 def cmd_pack(a) -> None:
@@ -69,8 +71,13 @@ def cmd_find(a) -> None:
 
     lo, hi = (int(x) for x in a.band.split(":"))
     with tempfile.TemporaryDirectory() as td:
-        wav = Path(td) / "a.wav"
-        M.extract_wav(a.video, wav)
+        if a.stem:
+            from videoeditor.core import stems
+
+            wav = stems.separate(a.video, _edit_dir(a.edit_dir, str(a.video)) / "stems", [a.stem], mono_16k=True)[a.stem]
+        else:
+            wav = Path(td) / "a.wav"
+            M.extract_wav(a.video, wav)
         peaks = M.detect_transients(wav, lo, hi, a.min_flux, a.min_gap)
     if a.top:
         peaks = sorted(peaks, key=lambda x: -x["flux"])[: a.top]
@@ -111,7 +118,18 @@ def cmd_reframe(a) -> None:
         argv += ["--left-roi", a.left_roi]
     if a.right_roi:
         argv += ["--right-roi", a.right_roi]
+    if a.turns:
+        argv += ["--turns", str(a.turns), "--speaker-map", a.speaker_map or "", "--clip-start", str(a.clip_start)]
     reframe.main(argv)
+
+
+def cmd_separate(a) -> None:
+    from videoeditor.core import stems
+
+    paths = stems.separate(a.media.resolve(), _edit_dir(a.edit_dir, str(a.media)) / "stems", a.stems,
+                           model=a.model, device=a.device)
+    for name, p in paths.items():
+        print(f"{name}: {p}")
 
 
 def cmd_edl(a) -> None:
@@ -167,9 +185,24 @@ def cmd_timeline(a) -> None:
 
 
 def cmd_overlay(a) -> None:
-    from videoeditor.core.overlays import render_text_card
+    from videoeditor.core import overlays
 
-    print(render_text_card(a.text, a.output, a.duration, font_path=a.font))
+    if a.engine == "pil":
+        if not a.text:
+            sys.exit("the pil engine needs the card text")
+        print(overlays.render_text_card(a.text, a.output, a.duration, font_path=a.font))
+        return
+    pages, duration = None, a.duration
+    if a.captions_from:
+        edl_path = a.captions_from.resolve()
+        edl = json.loads(edl_path.read_text())
+        pages = overlays.caption_pages_from_edl(edl, edl_path.parent)
+        duration = a.duration if a.duration_set else float(edl.get("total_duration_s") or a.duration)
+    w, h = (int(v) for v in a.size.lower().split("x"))
+    spec = overlays.build_overlay_spec(title=a.text, pages=pages, duration=duration, size=(w, h),
+                                       transparent=a.transparent, font_family=a.font_family)
+    slot = overlays.scaffold_remotion_slot(a.output.resolve().parent, spec)
+    print(overlays.render_remotion(slot, a.output.name, a.transparent, a.browser))
 
 
 def cmd_finish(a) -> None:
@@ -218,6 +251,14 @@ def main(argv: list[str] | None = None) -> None:
     p.add_argument("--language", default="en")
     p.add_argument("--vad", action="store_true")
     p.add_argument("--force", action="store_true")
+    p.add_argument("--backend", default="faster-whisper", choices=["faster-whisper", "whisperx"],
+                   help="whisperx = tighter word timing + optional speaker labels (extra: speech-plus)")
+    p.add_argument("--diarize", action="store_true", help="label speakers (whisperx backend, needs HF_TOKEN)")
+    p.add_argument("--hf-token", help="Hugging Face token for diarization (or set HF_TOKEN)")
+    p.add_argument("--min-speakers", type=int)
+    p.add_argument("--max-speakers", type=int)
+    p.add_argument("--clean-speech", action="store_true",
+                   help="separate the vocals stem first (Demucs, extra: stems); for music under speech")
     p.set_defaults(fn=cmd_transcribe)
 
     p = sub.add_parser("pack", help="transcripts -> takes_packed.md")
@@ -232,6 +273,8 @@ def main(argv: list[str] | None = None) -> None:
     p.add_argument("--min-gap", type=float, default=0.6)
     p.add_argument("--top", type=int, default=0)
     p.add_argument("--shots", action="store_true", help="emit cut ranges (0.4s before, 0.5s after each strike)")
+    p.add_argument("--stem", help="detect on an isolated stem (e.g. drums) when music is playing (extra: stems)")
+    p.add_argument("--edit-dir", type=Path)
     p.add_argument("-o", "--output", type=Path)
     p.set_defaults(fn=cmd_find)
 
@@ -255,7 +298,19 @@ def main(argv: list[str] | None = None) -> None:
     p.add_argument("--left-roi")
     p.add_argument("--right-roi")
     p.add_argument("--min-dwell", type=float, default=1.0)
+    p.add_argument("--turns", type=Path, help="diarized transcript JSON: use real speaker turns instead of motion")
+    p.add_argument("--speaker-map", help="SPEAKER_00=left,SPEAKER_01=right")
+    p.add_argument("--clip-start", type=float, default=0.0, help="clip start time within the transcribed source")
     p.set_defaults(fn=cmd_reframe)
+
+    p = sub.add_parser("separate", help="split audio into stems with Demucs (extra: stems)")
+    p.add_argument("media", type=Path)
+    p.add_argument("--stems", nargs="+", default=["vocals", "no_vocals"],
+                   help="e.g. vocals drums bass other, or no_vocals for everything else")
+    p.add_argument("--model", default="htdemucs")
+    p.add_argument("--device", default="cpu")
+    p.add_argument("--edit-dir", type=Path)
+    p.set_defaults(fn=cmd_separate)
 
     p = sub.add_parser("edl", help="build edl.json from sources and a ranges JSON list")
     p.add_argument("--source", action="append", required=True, metavar="NAME=PATH")
@@ -280,10 +335,16 @@ def main(argv: list[str] | None = None) -> None:
     p = sub.add_parser("timeline", help="filmstrip + waveform PNG (args pass through to timeline.py)")
     p.set_defaults(fn=cmd_timeline)
 
-    p = sub.add_parser("overlay", help="PIL text-card overlay clip")
-    p.add_argument("text")
-    p.add_argument("--duration", type=float, default=4.0)
-    p.add_argument("--font")
+    p = sub.add_parser("overlay", help="overlay clip: PIL text card, or a Remotion slot (titles/captions)")
+    p.add_argument("text", nargs="?", help="title / card text")
+    p.add_argument("--engine", choices=["pil", "remotion"], default="pil")
+    p.add_argument("--duration", type=float, default=None, help="seconds (default 4, or the EDL length with --captions-from)")
+    p.add_argument("--font", help="pil: path to a .ttf")
+    p.add_argument("--font-family", help="remotion: installed font family name")
+    p.add_argument("--captions-from", type=Path, help="remotion: EDL whose captions become overlay pages")
+    p.add_argument("--transparent", action="store_true", help="remotion: WebM with alpha instead of an opaque MP4")
+    p.add_argument("--size", default="1920x1080", help="remotion: WxH")
+    p.add_argument("--browser", help="remotion: Chrome/Chromium executable (or set REMOTION_BROWSER_EXECUTABLE)")
     p.add_argument("-o", "--output", type=Path, required=True)
     p.set_defaults(fn=cmd_overlay)
 
@@ -298,6 +359,9 @@ def main(argv: list[str] | None = None) -> None:
     p.set_defaults(fn=cmd_finish)
 
     a, extra = ap.parse_known_args(argv)
+    if a.cmd == "overlay":  # distinguish "default 4s" from "user asked for 4s" (EDL length wins only by default)
+        a.duration_set = a.duration is not None
+        a.duration = a.duration if a.duration is not None else 4.0
     if extra and a.cmd not in ("render", "grade", "timeline"):
         ap.error(f"unrecognized arguments: {' '.join(extra)}")
     a.extra = extra  # render/grade/timeline pass these through to their own parsers

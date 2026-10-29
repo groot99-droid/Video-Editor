@@ -654,6 +654,10 @@ def build_final_composite(
     inputs: list[str] = ["-i", str(base_path)]
     for ov in overlays:
         ov_path = resolve_path(ov["file"], edit_dir)
+        if ov_path.suffix.lower() == ".webm":
+            # ffmpeg's native VP8 decoder drops the alpha plane (the overlay would render as an opaque
+            # black frame); libvpx keeps it. Must come before the -i it applies to.
+            inputs += ["-c:v", "libvpx"]
         inputs += ["-i", str(ov_path)]
 
     filter_parts: list[str] = []
