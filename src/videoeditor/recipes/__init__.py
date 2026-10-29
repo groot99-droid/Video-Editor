@@ -22,6 +22,16 @@ class Recipe:
         return Path(__file__).parent / "playbooks" / f"{self.name}.md"
 
 
+def publish_step(brief: dict, video: str) -> list[str]:
+    """Closing steps shared by every recipe when the questionnaire asked for publishing."""
+    if brief.get("publish") != "prepare":
+        return []
+    return [f've publish prepare --video {video} --caption "..." --platforms youtube,bluesky   # checks only, sends nothing; '
+            "ask the user for the caption and platforms",
+            "ve publish plan                      # dry run: shows mode (private/draft by default) and what each platform gets",
+            "# sending is a separate, explicit step per platform: ve publish send --platform NAME --yes [--public]"]
+
+
 def register(recipe: Recipe) -> Recipe:
     REGISTRY[recipe.name] = recipe
     return recipe

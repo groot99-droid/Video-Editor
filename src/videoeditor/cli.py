@@ -205,6 +205,12 @@ def cmd_overlay(a) -> None:
     print(overlays.render_remotion(slot, a.output.name, a.transparent, a.browser))
 
 
+def cmd_publish(a) -> None:
+    from videoeditor.publish import cli as publish_cli
+
+    publish_cli.main(a.extra)
+
+
 def cmd_finish(a) -> None:
     """Single video in -> optional captions + grade + loudnorm -> out. Used for per-clip finishing."""
     from videoeditor.core import captions, transcribe as T
@@ -348,6 +354,9 @@ def main(argv: list[str] | None = None) -> None:
     p.add_argument("-o", "--output", type=Path, required=True)
     p.set_defaults(fn=cmd_overlay)
 
+    p = sub.add_parser("publish", add_help=False, help="send a finished video through official platform APIs (dry run by default)")
+    p.set_defaults(fn=cmd_publish)
+
     p = sub.add_parser("finish", help="caption/grade/loudnorm one finished clip")
     p.add_argument("video", type=Path)
     p.add_argument("-o", "--output", type=Path, required=True)
@@ -362,7 +371,7 @@ def main(argv: list[str] | None = None) -> None:
     if a.cmd == "overlay":  # distinguish "default 4s" from "user asked for 4s" (EDL length wins only by default)
         a.duration_set = a.duration is not None
         a.duration = a.duration if a.duration is not None else 4.0
-    if extra and a.cmd not in ("render", "grade", "timeline"):
+    if extra and a.cmd not in ("render", "grade", "timeline", "publish"):
         ap.error(f"unrecognized arguments: {' '.join(extra)}")
     a.extra = extra  # render/grade/timeline pass these through to their own parsers
     a.fn(a)

@@ -11,7 +11,8 @@ speech = ["faster-whisper"]
 speech-plus = ["faster-whisper", "whisperx"]   # tighter word timing + optional speaker labels (several GB: torch)
 stems = ["demucs>=4.1"]                        # Demucs stem separation (torch)
 animations = ["manim"]
-dev = ["pytest"]
+publish = ["requests", "keyring"]                # ve publish: HTTP client + OS keyring for tokens
+dev = ["pytest", "requests"]
 
 [project.scripts]
 ve = "videoeditor.cli:main"

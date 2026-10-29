@@ -40,6 +40,44 @@ ve plan --edit-dir edit              # the recipe's concrete steps + playbook pa
 Agents: copy or symlink `skills/video-editor` into your skills directory; it drives the same CLI.
 Run `ve --help` for every command. Tests: `pytest`.
 
+## Publishing (`ve publish`)
+
+A safer rebuild of the idea behind browser-automation posters. It uses **official platform APIs only**: OAuth or app
+tokens, no passwords, no cookies, no headless browser, no user-agent spoofing. Install: `pip install -e '.[publish]'`.
+
+```bash
+ve publish prepare --video final.mp4 --caption "..." --platforms youtube,mastodon --not-made-for-kids   # checks only
+ve publish plan                                  # dry run: what each platform would get, in which mode
+ve publish init youtube                          # one-time login (tokens go to the OS keyring or env vars, never a file)
+ve publish send --platform youtube --yes         # sends as PRIVATE; add --public to post publicly
+ve publish handoff                               # no API at all: where to upload + the caption to paste
+```
+
+Rules enforced in code (and tested): nothing is sent without `--yes`, one platform per command; **private/draft is the
+default** wherever a platform has one; platforms with no private mode (Bluesky, X) refuse unless you pass `--public`; X
+also needs `--accept-cost` (pay-per-post); validation errors block sending; the same video + platform + mode + text is
+sent once (an idempotency ledger in `<edit>/publish_ledger.jsonl`, `--force` to repeat); secrets are never written to a
+file (without a keyring, use `VE_<PLATFORM>_<NAME>` environment variables); the "made for kids" declaration for YouTube is
+never defaulted; `--ai-generated` / `--branded` are passed to platforms that have a field for them.
+
+| Platform | Default (no `--public`) | `--public` | Notes |
+|---|---|---|---|
+| YouTube | private upload | public | official docs say unverified API projects are not forced private; 1 quota unit per upload, 100/day |
+| Mastodon | followers-only | public | token from your instance; limits read from the instance |
+| LinkedIn | connections-only | public | no draft state exists for API posts; 60-day tokens, no refresh for self-serve apps (`init --manual` if localhost redirects are refused) |
+| TikTok | inbox upload (finish in the app; caption not sent) | Direct Post | non-private posting needs an audited app |
+| Instagram Reels | container prepared, **not published** (expires in 24 h) | publish | professional account + Meta app; token and user id supplied by you |
+| Bluesky | refused | public | no private posts exist |
+| X | refused | public + `--accept-cost` | pay-per-use pricing |
+
+**Verified against official docs, but never run against a live account** (no accounts or app approvals exist in the
+build environment): request shapes are unit-tested against a fake network and, for the trickiest transports
+(multipart, streamed files, Content-Range, basic auth), against a local HTTP server. Details that the docs left open
+and that may need adjusting on first real use: Bluesky's service-auth audience/method for video upload (taken from
+Bluesky's own client), whether LinkedIn's userinfo `sub` equals the id in `urn:li:person` (override with
+`VE_LINKEDIN_PERSON_ID`), whether Instagram resumable upload is available to your login type (or host the file and set
+`VE_INSTAGRAM_VIDEO_URL`), TikTok's scope separator, X's billing of media-upload calls, and what YouTube counts as a Short.
+
 ## Known limits
 
 - Local Whisper normalizes fillers ("um", "uh"), so filler removal is best-effort.

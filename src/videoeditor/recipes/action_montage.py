@@ -1,5 +1,5 @@
 """Cut on every strike/beat. No transcription, no captions."""
-from videoeditor.recipes import Recipe, register
+from videoeditor.recipes import Recipe, publish_step, register
 
 
 def steps(b: dict) -> list[str]:
@@ -16,7 +16,8 @@ def steps(b: dict) -> list[str]:
             "ve render <edit>/edl.json -o <edit>/final.mp4"]
     if b["deliverable"] == "vertical" and b.get("source_orientation") == "landscape":
         out.append("ve reframe <edit>/final.mp4 --mode center -o <edit>/final_vertical.mp4   # center crop; pan/split need talking faces")
-    return out
+    final = "<edit>/final_vertical.mp4" if b["deliverable"] == "vertical" and b.get("source_orientation") == "landscape" else "<edit>/final.mp4"
+    return out + publish_step(b, final)
 
 
 register(Recipe("action_montage", "Action / rhythm montage", "Cut on every strike or beat using audio transients.", steps))

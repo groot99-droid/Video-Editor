@@ -66,6 +66,12 @@ QUESTIONS: list[Question] = [
         help={"pil": "simple cards/counters, no extra install", "hyperframes": "HTML/CSS/GSAP motion (needs Node 22)",
               "remotion": "React compositions (needs Node)", "manim": "math/technical diagrams (needs LaTeX)"},
     ),
+    Question(
+        "publish", "Prepare the result for publishing?", ["none", "prepare"], "none",
+        help={"none": "just produce the video file",
+              "prepare": "also add a `ve publish prepare` step: caption, per-platform checks, dry-run plan. Nothing is ever "
+                         "sent without an explicit --yes, and private/draft is the default where a platform has one"},
+    ),
 ]
 
 QUESTION_KEYS = [q.key for q in QUESTIONS]
