@@ -6,7 +6,7 @@ def steps(b: dict) -> list[str]:
     src = b["sources"][0]
     out = ["# highlight_clips: dialogue -> several short clips",
            f"ve transcribe {src}",
-           f"ve pack --edit-dir <edit>            # writes takes_packed.md; read it and pick 3-5 candidates (10-25s each)",
+           "ve pack --edit-dir <edit>            # writes takes_packed.md; read it and pick 3-5 candidates (10-25s each)",
            "# confirm the candidate list (start, end, why, title) with the user before cutting"]
     out.append(f"ve cut {src} --start S --end E -o <edit>/clips/clip_N.mp4   # once per chosen clip")
     if b["deliverable"] == "vertical":
@@ -25,7 +25,8 @@ def steps(b: dict) -> list[str]:
         flags.append(f"--captions {cap}")
     if b.get("grade", "none") != "none":
         flags.append(f"--grade {b['grade']}")
-    out.append(f"ve finish {final} {' '.join(flags)} -o <out>/clip_N_final.mp4   # transcribes the clip, captions, grade, loudnorm".replace("  ", " "))
+    finish = " ".join(["ve finish", final, *flags, "-o <out>/clip_N_final.mp4"])
+    out.append(f"{finish}   # transcribes the clip, captions, grade, loudnorm")
     out.append("ve timeline <final> START END      # self-check cut boundaries and caption readability")
     return out
 

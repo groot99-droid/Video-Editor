@@ -1,4 +1,3 @@
-import importlib.util
 import unittest
 from types import SimpleNamespace as NS
 
@@ -37,3 +36,19 @@ class ScribeShape(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class MissingExtra(unittest.TestCase):
+    def test_friendly_error_without_faster_whisper(self):
+        import sys, tempfile
+        from pathlib import Path
+        from unittest import mock
+        from videoeditor.core.transcribe import transcribe
+
+        with tempfile.TemporaryDirectory() as td:
+            video = Path(td) / "v.mp4"
+            video.write_bytes(b"x")
+            with mock.patch.dict(sys.modules, {"faster_whisper": None}):  # None => ImportError on import
+                with self.assertRaises(SystemExit) as cm:
+                    transcribe(video, Path(td) / "edit")
+            self.assertIn("videoeditor[speech]", str(cm.exception))

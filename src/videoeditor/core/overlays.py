@@ -25,7 +25,7 @@ def render_text_card(text: str, out: Path, duration: float = 4.0, size: tuple[in
     out.parent.mkdir(parents=True, exist_ok=True)
     n = int(round(duration * fps))
     cmd = ["ffmpeg", "-y", "-v", "error", "-f", "rawvideo", "-pix_fmt", "rgb24", "-s", f"{size[0]}x{size[1]}",
-           "-r", str(fps), "-i", "-", "-f", "lavfi", "-i", f"anullsrc=r=48000:cl=stereo",
+           "-r", str(fps), "-i", "-", "-f", "lavfi", "-i", "anullsrc=r=48000:cl=stereo",
            "-t", f"{duration}", "-c:v", "libx264", "-pix_fmt", "yuv420p", "-crf", "18", "-c:a", "aac",
            "-shortest", str(out)]
     proc = subprocess.Popen(cmd, stdin=subprocess.PIPE)

@@ -8,7 +8,7 @@ has already collected them from the user.
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass, field, asdict
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Callable
 
@@ -161,4 +161,4 @@ def schema() -> list[dict]:
             for q in QUESTIONS]
 
 
-__all__ = ["QUESTIONS", "build_brief", "ask_interactive", "save_brief", "load_brief", "schema", "asdict"]
+__all__ = ["QUESTIONS", "build_brief", "ask_interactive", "save_brief", "load_brief", "schema"]

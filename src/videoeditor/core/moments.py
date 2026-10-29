@@ -1,14 +1,11 @@
 """Find candidate moments: audio impact transients (action mode) and in-frame verification.
 
 Ported from clipify's detect_transients.py with the same defaults. Dialogue-mode moment
-picking stays LLM-driven from the packed transcript (see recipes/vertical_clips playbook).
+picking stays LLM-driven from the packed transcript (see recipes/playbooks/highlight_clips.md).
 """
 from __future__ import annotations
 
-import argparse
-import json
 import subprocess
-import sys
 import wave
 from pathlib import Path
 
@@ -99,32 +96,3 @@ def shots_around(strikes: list[dict], pre: float = 0.4, post: float = 0.5, durat
         if b > a:
             shots.append({"start": round(a, 3), "end": round(b, 3), "strike": s["time"]})
     return shots
-
-
-def main(argv: list[str] | None = None) -> None:
-    p = argparse.ArgumentParser(description="Detect audio impact transients in a video or WAV")
-    p.add_argument("media")
-    p.add_argument("--band", default="1000:6000", help='freq band Hz, "lo:hi"')
-    p.add_argument("--min-flux", type=float, default=30.0)
-    p.add_argument("--min-gap", type=float, default=0.6)
-    p.add_argument("--top", type=int, default=0, help="keep N strongest (0 = all)")
-    a = p.parse_args(argv)
-    media = Path(a.media)
-    lo, hi = (int(x) for x in a.band.split(":"))
-    if media.suffix.lower() == ".wav":
-        peaks = detect_transients(media, lo, hi, a.min_flux, a.min_gap)
-    else:
-        import tempfile
-        with tempfile.TemporaryDirectory() as td:
-            wav = Path(td) / "a.wav"
-            extract_wav(media, wav)
-            peaks = detect_transients(wav, lo, hi, a.min_flux, a.min_gap)
-    if a.top:
-        peaks = sorted(peaks, key=lambda x: -x["flux"])[: a.top]
-        peaks.sort(key=lambda x: x["time"])
-    json.dump(peaks, sys.stdout, indent=2)
-    sys.stdout.write("\n")
-
-
-if __name__ == "__main__":
-    main()

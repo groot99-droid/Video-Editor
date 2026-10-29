@@ -178,7 +178,7 @@ def cmd_finish(a) -> None:
     from videoeditor.core.platform import probe
 
     video = a.video.resolve()
-    edit = _edit_dir(a.edit_dir, str(video)) if a.edit_dir else a.output.resolve().parent / f"edit_{video.stem}"
+    edit = a.edit_dir.resolve() if a.edit_dir else a.output.resolve().parent / f"edit_{video.stem}"
     edit.mkdir(parents=True, exist_ok=True)
     dur = probe(video)["duration"]
     edl = {"version": 1, "sources": {video.stem: str(video)},

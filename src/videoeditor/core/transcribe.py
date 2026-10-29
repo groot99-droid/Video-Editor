@@ -6,11 +6,10 @@ Producing that shape here means they work unchanged on Whisper output.
 Whisper tends to drop fillers ("um", "uh"); the initial prompt below nudges it to keep them,
 but it is not a guarantee. Cuts around fillers are therefore less reliable than with Scribe.
 
-Usage: ve transcribe <video> [--edit-dir DIR] [--model base.en] [--language en]
+CLI: `ve transcribe <video> [--edit-dir DIR] [--model base.en] [--language en]`.
 """
 from __future__ import annotations
 
-import argparse
 import json
 import subprocess
 import tempfile
@@ -70,7 +69,10 @@ def transcribe(
         if out.stat().st_mtime >= video.stat().st_mtime:
             print(f"cached: {out}")
             return out
-    from faster_whisper import WhisperModel  # imported lazily: heavy, optional for non-speech recipes
+    try:
+        from faster_whisper import WhisperModel  # lazy: heavy, and not needed by the action recipe
+    except ImportError:
+        raise SystemExit("local transcription needs faster-whisper: pip install 'videoeditor[speech]'") from None
 
     out.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory() as td:
@@ -89,21 +91,3 @@ def transcribe(
     out.write_text(json.dumps(data, indent=2))
     print(f"transcript -> {out} ({sum(1 for w in data['words'] if w['type'] == 'word')} words)")
     return out
-
-
-def main(argv: list[str] | None = None) -> None:
-    ap = argparse.ArgumentParser(description="Transcribe with local Whisper (Scribe-shaped JSON)")
-    ap.add_argument("video", type=Path, nargs="+")
-    ap.add_argument("--edit-dir", type=Path, default=None, help="default: <video dir>/edit")
-    ap.add_argument("--model", default="base.en", help="faster-whisper model name or path")
-    ap.add_argument("--language", default="en", help="'auto' to detect")
-    ap.add_argument("--vad", action="store_true", help="enable VAD filtering (may drop fillers)")
-    ap.add_argument("--force", action="store_true")
-    a = ap.parse_args(argv)
-    for v in a.video:
-        edit = a.edit_dir or v.resolve().parent / "edit"
-        transcribe(v.resolve(), edit, a.model, None if a.language == "auto" else a.language, a.vad, a.force)
-
-
-if __name__ == "__main__":
-    main()

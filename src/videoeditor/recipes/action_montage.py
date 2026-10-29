@@ -15,7 +15,7 @@ def steps(b: dict) -> list[str]:
     out += ["ve render <edit>/edl.json -o <edit>/preview.mp4 --preview",
             "ve render <edit>/edl.json -o <edit>/final.mp4"]
     if b["deliverable"] == "vertical" and b.get("source_orientation") == "landscape":
-        out.append(f"ve reframe <edit>/final.mp4 --mode center -o <edit>/final_vertical.mp4   # center crop; pan/split need talking faces")
+        out.append("ve reframe <edit>/final.mp4 --mode center -o <edit>/final_vertical.mp4   # center crop; pan/split need talking faces")
     return out
 
 
