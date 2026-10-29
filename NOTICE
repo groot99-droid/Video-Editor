@@ -7,3 +7,11 @@ This project merges and adapts code from two MIT-licensed projects:
 
 Full licence texts are in LICENSES/. Changes: ElevenLabs transcription replaced by local Whisper emitting the same
 JSON shape; macOS-only flags and font paths removed; captions merged into one engine; scripts turned into a package.
+
+Optional dependencies (installed by the user, not vendored; no source from them is in this repository):
+
+- whisperX (BSD-2-Clause), https://github.com/m-bain/whisperX            extra `speech-plus`
+- Demucs (MIT, maintained fork), https://github.com/adefossez/demucs      extra `stems`
+- Remotion (custom licence, https://www.remotion.pro/license)             npm packages used by
+  src/videoeditor/templates/remotion_overlay, which is our own code and contains no Remotion source.
+  Free for individuals, for-profit organisations of up to 3 people, and non-profits; others need a company licence.

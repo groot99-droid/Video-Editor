@@ -8,6 +8,10 @@ overlay PTS shifted to its window; caption times on the OUTPUT timeline; never c
 every cut edge 30-200ms; cache transcripts; confirm the plain-English strategy before cutting; all outputs
 under `<videos_dir>/edit/`.
 
+Better timing: with the `speech-plus` extra, `ve transcribe --backend whisperx` aligns words against the audio
+(on a synthetic test its word starts were about 3x closer to true onsets than faster-whisper's; confirm on real
+footage). Music under the speech: `ve transcribe --clean-speech` (needs `stems`).
+
 Whisper caveat: fillers ("um", "uh") may be absent from the transcript. Listen-free detection of them is
 limited to silence gaps >= 400ms. Tell the user filler removal is best-effort with local Whisper.
 

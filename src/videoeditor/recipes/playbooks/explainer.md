@@ -1,5 +1,12 @@
 # Playbook: explainer (overlay add-on)
 
+Built in: `ve overlay "Title" --engine pil` (no setup) and `ve overlay ... --engine remotion` (our own template in
+`templates/remotion_overlay`; titles and caption pages from `--captions-from edl.json`; `--transparent` gives a WebM
+with alpha, which render.py decodes with libvpx so the alpha survives). Remotion needs Node and is NOT open source:
+free for individuals, for-profit orgs up to 3 people and non-profits, otherwise a company licence
+(https://www.remotion.pro/license). Check eligibility before using it commercially. For deeper Remotion work,
+the user can install Remotion's official agent skills themselves: `npx skills add remotion-dev/skills`.
+
 Pick the engine per slot: PIL (simple cards/counters), HyperFrames (HTML/CSS/GSAP motion, needs Node 22),
 Remotion (React), Manim (formal diagrams, equations, graph morphs; see skills/manim-video/SKILL.md).
 
