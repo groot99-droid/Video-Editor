@@ -1,5 +1,7 @@
 # Video-Editor
 
+> **Status, 2026-11-19: this repository is the original, kept as of its PR #3 (2026-10-29).** The maintained version is the `video-editor` plugin in groot99-droid/Pipelines-Plugin (`plugins/video-editor/`), which moved this code in and has gone on since: `ve doctor`, the `bin/ve.py` launcher (runs from a plugin install with no `pip install`), the publish guard hook, the `/ve-doctor` command, the `video-editor-render-qa` agent, the `manim-video` creative-direction reference and `UNVERIFIED.md`, the checklist of what has not been run against a live account. Make changes there; this copy is not kept in step.
+
 One questionnaire-driven video editor, merged from [video-use](https://github.com/browser-use/video-use) and
 [clipify](https://github.com/louisedesadeleer/clipify). You answer a few questions first; the answers select a single
 use-case recipe, so vertical-vs-landscape, dialogue-vs-action and similar choices never compete.
